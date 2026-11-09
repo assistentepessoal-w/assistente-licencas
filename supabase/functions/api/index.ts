@@ -8,9 +8,12 @@
 // as mesmas respostas e a MESMA assinatura Ed25519 (corpo JSON em base64url + "." + assinatura em base64url). O
 // programa (core/licenca.py) confere com a chave pública que já tem embutida: nada muda para ele além do endereço.
 //
-// Segredos da função (Supabase > Edge Functions > Secrets): LICENCA_CHAVE_PRIVADA (a mesma do Vercel, base64 dos
-// 32 bytes) e LICENCA_ADMIN_SENHA. SUPABASE_URL e a chave de serviço o Supabase entrega sozinho.
-// A função roda com "Verify JWT" DESLIGADO: o programa pergunta sem login.
+// NINGUÉM COLA SEGREDO (09/11/2026): a chave de assinatura é criada pelo próprio servidor na primeira vez e guardada
+// na tabela config_segura (sql/002, só a service_role lê); a parte PÚBLICA sai em /api/chave-publica e vai embutida
+// no ASSISTENTE 2.7.0 (os da 2.6.0 seguem no servidor antigo, com a chave antiga). A senha do painel é criada pelo
+// dono no primeiro acesso e fica só em hash PBKDF2. Se existirem os segredos LICENCA_CHAVE_PRIVADA /
+// LICENCA_ADMIN_SENHA na função, eles valem no lugar. SUPABASE_URL e a chave de serviço o Supabase entrega sozinho.
+// A função roda com "Verify JWT" ligado: o programa e o painel mandam a chave PÚBLICA (anon) do projeto.
 
 const FOLGA_DIAS = 7;
 const TESTE_MINUTOS = 15;
@@ -58,22 +61,57 @@ function normalizaChave(c: unknown) {
 // Assinatura (Ed25519, a mesma chave do servidor antigo)
 // ---------------------------------------------------------------------------
 let chavePrivada: CryptoKey | null = null;
+let chavePublica = "";          // base64 dos 32 bytes (o formato da CHAVE_PUBLICA do core/licenca.py)
+
+function b64(b: Uint8Array) {
+  let s = "";
+  for (const x of b) s += String.fromCharCode(x);
+  return btoa(s);
+}
+const deB64 = (s: string) => Uint8Array.from(atob(limpo(s)), (c) => c.charCodeAt(0));
+const b64u = (b: Uint8Array) => b64(b).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+
+// config_segura: o que o servidor cria e guarda sozinho (sql/002_config_segura.sql)
+async function lerConfig(nome: string): Promise<string> {
+  const r = await banco("GET", `config_segura?nome=eq.${encodeURIComponent(nome)}&select=valor`);
+  return r && r.length ? String(r[0].valor || "") : "";
+}
+async function criarConfig(nome: string, valor: string) {
+  // dois pedidos juntos: o segundo bate na chave primária e vale o que o primeiro gravou
+  try { await banco("POST", "config_segura", { nome, valor }, "return=minimal"); return true; } catch { return false; }
+}
 
 async function chaveDeAssinar() {
   if (chavePrivada) return chavePrivada;
-  const semente = Uint8Array.from(atob(limpo(Deno.env.get("LICENCA_CHAVE_PRIVADA"))), (c) => c.charCodeAt(0));
-  if (semente.length !== 32) throw new Error("LICENCA_CHAVE_PRIVADA ausente ou inválida");
-  // PKCS#8 de Ed25519 = cabeçalho fixo + os 32 bytes da semente
-  const cab = [0x30, 0x2e, 0x02, 0x01, 0x00, 0x30, 0x05, 0x06, 0x03, 0x2b, 0x65, 0x70, 0x04, 0x22, 0x04, 0x20];
-  chavePrivada = await crypto.subtle.importKey("pkcs8", new Uint8Array([...cab, ...semente]), { name: "Ed25519" },
-    false, ["sign"]);
+  const daVariavel = limpo(Deno.env.get("LICENCA_CHAVE_PRIVADA"));
+  if (daVariavel) {
+    const semente = deB64(daVariavel);
+    if (semente.length !== 32) throw new Error("LICENCA_CHAVE_PRIVADA inválida");
+    // PKCS#8 de Ed25519 = cabeçalho fixo + os 32 bytes da semente
+    const cab = [0x30, 0x2e, 0x02, 0x01, 0x00, 0x30, 0x05, 0x06, 0x03, 0x2b, 0x65, 0x70, 0x04, 0x22, 0x04, 0x20];
+    chavePrivada = await crypto.subtle.importKey("pkcs8", new Uint8Array([...cab, ...semente]), { name: "Ed25519" },
+      false, ["sign"]);
+    return chavePrivada;
+  }
+  // A chave do próprio servidor: privada e pública numa linha só (as duas sempre do mesmo par)
+  let guardada = await lerConfig("assinatura");
+  if (!guardada) {
+    const par = await crypto.subtle.generateKey({ name: "Ed25519" }, true, ["sign", "verify"]) as CryptoKeyPair;
+    const pkcs8 = new Uint8Array(await crypto.subtle.exportKey("pkcs8", par.privateKey));
+    const pub = new Uint8Array(await crypto.subtle.exportKey("raw", par.publicKey));
+    await criarConfig("assinatura", JSON.stringify({ pkcs8: b64(pkcs8), publica: b64(pub) }));
+    guardada = await lerConfig("assinatura");
+  }
+  const j = JSON.parse(guardada);
+  chavePublica = j.publica;
+  chavePrivada = await crypto.subtle.importKey("pkcs8", deB64(j.pkcs8), { name: "Ed25519" }, false, ["sign"]);
   return chavePrivada;
 }
 
-function b64u(b: Uint8Array) {
-  let s = "";
-  for (const x of b) s += String.fromCharCode(x);
-  return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+async function publicaDoServidor() {
+  if (limpo(Deno.env.get("LICENCA_CHAVE_PRIVADA"))) return "";   // a chave antiga: a pública já está no programa
+  await chaveDeAssinar();
+  return chavePublica;
 }
 
 // json.dumps(..., sort_keys=True, separators=(",", ":"), ensure_ascii=False), como no servidor antigo
@@ -216,13 +254,48 @@ async function teste(pcDado: unknown, pcNome: string, versao: string): Promise<[
 // ---------------------------------------------------------------------------
 // O painel (só com a senha)
 // ---------------------------------------------------------------------------
-function senhaOk(senha: unknown) {
-  const certa = new TextEncoder().encode((Deno.env.get("LICENCA_ADMIN_SENHA") || "").replace(/﻿/g, "").trim());
-  const dada = new TextEncoder().encode(String(senha ?? "").replace(/﻿/g, "").trim());
-  if (!certa.length || certa.length !== dada.length) return false;
+function iguais(a: Uint8Array, b: Uint8Array) {
+  if (!a.length || a.length !== b.length) return false;
   let dif = 0;
-  for (let i = 0; i < certa.length; i++) dif |= certa[i] ^ dada[i];
+  for (let i = 0; i < a.length; i++) dif |= a[i] ^ b[i];
   return dif === 0;
+}
+
+const senhaDoSegredo = () => (Deno.env.get("LICENCA_ADMIN_SENHA") || "").replace(/﻿/g, "").trim();
+const limpaSenha = (s: unknown) => String(s ?? "").replace(/﻿/g, "").trim();
+
+// PBKDF2-SHA256: "pbkdf2$<voltas>$<sal base64>$<hash base64>" — a senha em si nunca fica guardada
+async function hashSenha(senha: string, sal: Uint8Array, voltas: number) {
+  const base = await crypto.subtle.importKey("raw", new TextEncoder().encode(senha), "PBKDF2", false, ["deriveBits"]);
+  return new Uint8Array(await crypto.subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt: sal, iterations: voltas },
+    base, 256));
+}
+
+async function senhaDefinida() {
+  return Boolean(senhaDoSegredo() || await lerConfig("painel_senha"));
+}
+
+async function senhaOk(senha: unknown) {
+  const dada = limpaSenha(senha);
+  const doSegredo = senhaDoSegredo();
+  if (doSegredo) return iguais(new TextEncoder().encode(dada), new TextEncoder().encode(doSegredo));
+  const guardada = await lerConfig("painel_senha");
+  const p = guardada.split("$");
+  if (p.length !== 4 || p[0] !== "pbkdf2" || !dada) return false;
+  return iguais(await hashSenha(dada, deB64(p[2]), Number(p[1])), deB64(p[3]));
+}
+
+// O primeiro acesso ao painel: o dono cria a senha (só enquanto não existe nenhuma).
+async function criarSenha(nova: unknown): Promise<[number, Linha]> {
+  const s = limpaSenha(nova);
+  if (s.length < 8) return [400, { erro: "a senha precisa de pelo menos 8 caracteres" }];
+  if (await senhaDefinida()) return [409, { erro: "a senha do painel já foi criada" }];
+  const sal = crypto.getRandomValues(new Uint8Array(16));
+  const voltas = 150000;
+  const ok = await criarConfig("painel_senha", `pbkdf2$${voltas}$${b64(sal)}$${b64(await hashSenha(s, sal, voltas))}`);
+  if (!ok) return [409, { erro: "a senha do painel já foi criada" }];
+  await B.registrar(null, "Senha do painel criada");
+  return [200, { ok: true }];
 }
 
 async function admin(acao: string, d: Linha): Promise<Linha> {
@@ -341,6 +414,10 @@ Deno.serve(async (req) => {
   const rota = new URL(req.url).pathname.split("/").filter(Boolean).pop() || "";
   try {
     if (rota === "versao" && req.method === "GET") return responder(...(await versaoPublicada()));
+    // a parte PÚBLICA da chave de assinatura (vai embutida no programa)
+    if (rota === "chave-publica" && req.method === "GET") {
+      return responder(200, { chave_publica: await publicaDoServidor() });
+    }
     if (req.method !== "POST") return responder(404, { erro: "rota desconhecida" });
     const bruto = await req.text();
     if (rota !== "admin" && bruto.length > 4000) return responder(413, { erro: "pedido grande demais" });
@@ -350,7 +427,10 @@ Deno.serve(async (req) => {
     }
     if (rota === "teste") return responder(...(await teste(d.pc_id, d.pc_nome || "", d.versao || "")));
     if (rota === "admin") {
-      if (!senhaOk(d.senha)) {
+      // sem senha: só saber se ela já existe e criá-la no primeiro acesso
+      if (d.acao === "estado_painel") return responder(200, { senha_definida: await senhaDefinida() });
+      if (d.acao === "criar_senha") return responder(...(await criarSenha(d.nova)));
+      if (!(await senhaOk(d.senha))) {
         await new Promise((r) => setTimeout(r, 1500));   // tentativa de senha custa tempo
         return responder(401, { erro: "senha errada" });
       }

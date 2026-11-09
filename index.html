@@ -56,7 +56,7 @@ tr.lic:hover td{background:rgba(255,255,255,.02)}
 <body>
 <div class="painel entrar" id="entrar">
   <h1><span class="logo">A</span>Licenças do ASSISTENTE</h1>
-  <label>Senha do painel<input type="password" id="senha" autocomplete="current-password"></label>
+  <label><span id="senha-rotulo">Senha do painel</span><input type="password" id="senha" autocomplete="current-password"></label>
   <button class="verde" id="b-entrar">Entrar</button>
   <small id="entrar-erro"></small>
 </div>
@@ -180,8 +180,30 @@ function pinta() {
   }).join('') || '<small>Nenhum PC testou ainda.</small>';
 }
 async function carrega() { try { dados = await admin('listar'); pinta(); } catch (e) { toast(e.message); } }
+// PRIMEIRO ACESSO (09/11/2026): o servidor novo não tem senha até o dono criar uma aqui; ela fica só em hash lá.
+let criandoSenha = false;
+async function pedir(corpo) {
+  const r = await fetch(API + '/admin', {method: 'POST', headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + ANON, 'apikey': ANON}, body: JSON.stringify(corpo)});
+  return [r.status, await r.json().catch(() => ({}))];
+}
+(async () => {
+  try {
+    const [st, j] = await pedir({acao: 'estado_painel'});
+    if (st === 200 && j.senha_definida === false) {
+      criandoSenha = true;
+      $('#senha-rotulo').textContent = 'Crie a senha do painel (mínimo 8 caracteres)';
+      $('#senha').autocomplete = 'new-password';
+      $('#b-entrar').textContent = 'Criar a senha e entrar';
+    }
+  } catch (e) { /* sem rede: o login normal mostra o erro */ }
+})();
 async function entrar() {
   senha = $('#senha').value;
+  if (criandoSenha) {
+    const [st, j] = await pedir({acao: 'criar_senha', nova: senha});
+    if (st !== 200 && st !== 409) { $('#entrar-erro').textContent = j.erro || ('erro ' + st); return; }
+    criandoSenha = false; $('#senha-rotulo').textContent = 'Senha do painel'; $('#b-entrar').textContent = 'Entrar';
+  }
   try { dados = await admin('listar'); sessionStorage.setItem('lic.senha', senha); $('#entrar').hidden = true; $('#app').hidden = false; pinta(); }
   catch (e) { $('#entrar-erro').textContent = e.message; }
 }
