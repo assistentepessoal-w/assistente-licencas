@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Licenças · ASSISTENTE</title>
+<style>
+:root{color-scheme:dark;--verde:#00a884;--verde-claro:#00c4a7;--fundo:#0b1014;--painel:#111b21;--painel2:#1a252d;--campo:#202c33;--hover:#2a3942;
+  --texto:#e9edef;--fraco:#8696a0;--borda:#22313a;--vermelho:#e74c3c;--amarelo:#f1c40f;--azul:#4fb3d9;--fonte:"Segoe UI",system-ui,sans-serif}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--fundo);color:var(--texto);font:14px/1.5 var(--fonte);min-height:100vh}
+main{max-width:1280px;margin:auto;padding:22px 20px 40px;display:flex;flex-direction:column;gap:16px}
+header{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+h1{font-size:18px;letter-spacing:.08em;text-transform:uppercase}
+.logo{display:inline-grid;place-items:center;width:34px;height:34px;border-radius:10px;background:var(--verde);color:#04170f;font-weight:800;margin-right:10px;vertical-align:middle}
+small,.fraco{color:var(--fraco);font-size:12px}
+button{font:inherit;font-size:12px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;border:1.5px solid var(--borda);background:var(--painel2);
+  color:var(--texto);border-radius:9px;height:36px;padding:0 13px;cursor:pointer;white-space:nowrap}
+button:hover{background:var(--hover)}
+button.verde{background:var(--verde);border-color:var(--verde);color:#04130f}
+button.perigo{color:#ff8b7f;border-color:#5a2a26;background:#2a1715}
+button.amarelo{color:var(--amarelo);border-color:#5a4a16;background:#2a2410}
+button.pq{height:30px;padding:0 10px;font-size:11px}
+input,select{font:inherit;height:40px;background:var(--campo);color:var(--texto);border:1.5px solid var(--hover);border-radius:9px;padding:0 11px;width:100%}
+label{display:flex;flex-direction:column;gap:5px;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--fraco)}
+.painel{background:var(--painel);border:1px solid var(--borda);border-radius:14px;padding:16px 18px}
+.numeros{display:grid;grid-template-columns:repeat(5,1fr);gap:12px}
+.numeros div{background:var(--painel);border:1px solid var(--borda);border-radius:12px;padding:12px 16px}
+.numeros b{display:block;font-size:24px;font-variant-numeric:tabular-nums}
+.nova{display:grid;grid-template-columns:1.4fr 1.2fr .9fr .8fr .7fr 1.4fr auto;gap:10px;align-items:end}
+.filtros{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.filtros input{max-width:320px}
+table{width:100%;border-collapse:collapse}
+th{font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--fraco);text-align:left;padding:8px 10px;border-bottom:1px solid var(--borda)}
+td{padding:10px;border-bottom:1px solid var(--borda);vertical-align:top}
+tr.lic:hover td{background:rgba(255,255,255,.02)}
+.chave{font:700 13px ui-monospace,Consolas,monospace;letter-spacing:.06em;cursor:pointer}
+.selo{display:inline-block;font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;border-radius:6px;padding:2px 8px}
+.selo.ativa{background:rgba(46,204,113,.14);color:#2ecc71}.selo.pausada{background:rgba(241,196,15,.13);color:var(--amarelo)}
+.selo.emissor{background:rgba(79,179,217,.14);color:var(--azul)}.selo.prospector{background:rgba(0,168,132,.14);color:var(--verde-claro)}
+.versoes{display:grid;grid-template-columns:.8fr 1.6fr 2fr 1.4fr auto;gap:10px;align-items:end}
+.selo.cancelada{background:rgba(231,76,60,.13);color:#ff8b7f}.selo.vencida{background:rgba(231,76,60,.13);color:#ff8b7f}
+.pcs{display:flex;flex-direction:column;gap:4px}
+.pc{display:flex;gap:8px;align-items:center;font-size:12.5px}
+.pc.liberada{opacity:.45;text-decoration:line-through}
+.acoes{display:flex;gap:6px;flex-wrap:wrap}
+.reg{font-size:12.5px;color:var(--fraco);display:flex;flex-direction:column;gap:4px;max-height:260px;overflow:auto}
+.reg b{color:var(--texto);font-weight:600}
+.entrar{max-width:380px;margin:12vh auto;display:flex;flex-direction:column;gap:14px}
+#toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#203c43;border:1px solid #2b6c80;padding:10px 18px;border-radius:10px;font-size:13px}
+[hidden]{display:none!important}
+@media(max-width:900px){.nova,.versoes{grid-template-columns:1fr 1fr}.numeros{grid-template-columns:repeat(2,1fr)}td,th{font-size:12px}}
+</style>
+</head>
+<body>
+<div class="painel entrar" id="entrar">
+  <h1><span class="logo">A</span>Licenças do ASSISTENTE</h1>
+  <label>Senha do painel<input type="password" id="senha" autocomplete="current-password"></label>
+  <button class="verde" id="b-entrar">Entrar</button>
+  <small id="entrar-erro"></small>
+</div>
+
+<main id="app" hidden>
+  <header>
+    <h1><span class="logo">A</span>Licenças do ASSISTENTE</h1>
+    <div class="filtros"><button id="b-atualizar">Atualizar</button><button id="b-sair">Sair</button></div>
+  </header>
+
+  <section class="numeros">
+    <div><small>Licenças</small><b id="n-total">0</b></div>
+    <div><small>Ativas</small><b id="n-ativas" style="color:#2ecc71">0</b></div>
+    <div><small>Pausadas</small><b id="n-pausadas" style="color:var(--amarelo)">0</b></div>
+    <div><small>Vencidas ou canceladas</small><b id="n-fora" style="color:#ff8b7f">0</b></div>
+    <div><small>PCs ativados</small><b id="n-pcs">0</b></div>
+  </section>
+
+  <section class="painel">
+    <div class="nova">
+      <label>Cliente<input id="c-cliente" placeholder="Nome ou empresa"></label>
+      <label>Contato<input id="c-contato" placeholder="WhatsApp ou e-mail"></label>
+      <label>Plano<select id="c-plano"><option value="mensal">Mensal</option><option value="vitalicia">Vitalícia</option></select></label>
+      <label id="c-meses-l">Meses pagos<input type="number" id="c-meses" value="1" min="1" max="36"></label>
+      <label>PCs<input type="number" id="c-pcs" value="1" min="1" max="100"></label>
+      <label>Observação<input id="c-obs" placeholder="opcional"></label>
+      <button class="verde" id="b-criar" style="height:40px">Criar licença</button>
+    </div>
+  </section>
+
+  <section class="painel">
+    <div class="filtros" style="margin-bottom:10px"><input id="busca" placeholder="Buscar cliente, chave ou PC"><small id="mostrando"></small></div>
+    <table>
+      <thead><tr><th>Cliente</th><th>Chave</th><th>Plano</th><th>Situação</th><th>PCs</th><th>Ações</th></tr></thead>
+      <tbody id="lista"></tbody>
+    </table>
+  </section>
+
+  <section class="painel">
+    <small style="font-weight:700;letter-spacing:.1em;text-transform:uppercase">Atualização do ASSISTENTE</small>
+    <div id="versoes" class="reg" style="margin:8px 0 12px"></div>
+    <div class="versoes">
+      <label>Versão<input id="v-versao" placeholder="2.6.0"></label>
+      <label>Link do instalador (https)<input id="v-url" placeholder="https://github.com/.../Instalador-ASSISTENTE-2.6.0.exe"></label>
+      <label>SHA-256 do instalador<input id="v-sha" placeholder="está no VERSAO.txt da entrega"></label>
+      <label>O que mudou<input id="v-notas" placeholder="opcional"></label>
+      <button class="verde" id="b-versao" style="height:40px">Publicar versão</button>
+    </div>
+    <small>O programa só instala se o arquivo baixado tiver exatamente esse SHA-256.</small>
+  </section>
+
+  <section class="painel">
+    <small style="font-weight:700;letter-spacing:.1em;text-transform:uppercase">Testes grátis (<span id="t-min">15</span> minutos por PC)</small>
+    <div id="testes" class="reg" style="margin-top:8px"></div>
+    <small>Cada PC testa uma vez, contado da primeira abertura. "Liberar de novo" dá outro teste àquele PC.</small>
+  </section>
+
+  <section class="painel"><small style="font-weight:700;letter-spacing:.1em;text-transform:uppercase">Registro</small><div class="reg" id="reg" style="margin-top:8px"></div></section>
+</main>
+<div id="toast" hidden></div>
+
+<script>
+// O painel mora no GitHub Pages e o servidor dentro do Supabase (08/11/2026).
+// a chave PÚBLICA do projeto (anon): a função exige; ela não lê nem grava nada sozinha
+const ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5obmN5dnJyY2NwbGpmaHpoa3VwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQxNjUyOTEsImV4cCI6MjEwOTc0MTI5MX0.WMuR_1qG7q7CT6I5JDLP4TM-69_LePW19dsH-mwIMfQ';
+const API = 'https://nhncyvrrccpljfhzhkup.supabase.co/functions/v1/api';
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let senha = sessionStorage.getItem('lic.senha') || '', dados = {licencas: [], registros: []};
+let tt; function toast(m) { const t = $('#toast'); t.textContent = m; t.hidden = false; clearTimeout(tt); tt = setTimeout(() => t.hidden = true, 4000); }
+async function admin(acao, extra) {
+  const r = await fetch(API + '/admin', {method: 'POST', headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + ANON, 'apikey': ANON}, body: JSON.stringify({senha, acao, ...(extra || {})})});
+  const j = await r.json().catch(() => ({}));
+  if (r.status === 401) { sair(); throw new Error('senha errada'); }
+  if (!r.ok) throw new Error(j.erro || ('erro ' + r.status));
+  return j;
+}
+const data = s => s ? new Date(s).toLocaleDateString('pt-BR') : '—';
+const quando = s => s ? new Date(s).toLocaleString('pt-BR', {day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit'}) : '—';
+function situacao(l) {
+  if (l.status !== 'ativa') return l.status;
+  if (l.plano === 'mensal' && l.vence_em && new Date(l.vence_em) < new Date()) return 'vencida';
+  return 'ativa';
+}
+function pinta() {
+  const ls = dados.licencas, q = $('#busca').value.trim().toLowerCase();
+  const sit = ls.map(situacao);
+  $('#n-total').textContent = ls.length;
+  $('#n-ativas').textContent = sit.filter(s => s === 'ativa').length;
+  $('#n-pausadas').textContent = sit.filter(s => s === 'pausada').length;
+  $('#n-fora').textContent = sit.filter(s => s === 'vencida' || s === 'cancelada').length;
+  $('#n-pcs').textContent = ls.reduce((n, l) => n + (l.pcs || []).filter(p => !p.liberada).length, 0);
+  const vis = ls.filter(l => !q || [l.cliente, l.contato, l.chave, l.obs, ...(l.pcs || []).map(p => p.pc_nome)].join(' ').toLowerCase().includes(q));
+  $('#mostrando').textContent = q ? `${vis.length} de ${ls.length}` : '';
+  $('#lista').innerHTML = vis.map(l => {
+    const s = situacao(l), ativos = (l.pcs || []).filter(p => !p.liberada).length;
+    const pcs = (l.pcs || []).map(p => `<div class="pc ${p.liberada ? 'liberada' : ''}" title="Visto por último ${quando(p.visto_em)} · versão ${esc(p.versao)}"><span>${esc(p.pc_nome || p.pc_id.slice(0, 12))}</span><small>${quando(p.visto_em)}</small>${p.liberada ? '' : `<button class="pq" data-a="liberar_pc" data-id="${l.id}" data-pc="${p.id}" title="Libera a vaga para o cliente ativar em outro PC; este para na próxima conferência">Liberar</button>`}</div>`).join('');
+    return `<tr class="lic"><td><b>${esc(l.cliente || '—')}</b><br><small>${esc(l.contato || '')}${l.obs ? ' · ' + esc(l.obs) : ''}</small></td>
+      <td><span class="chave" data-copiar="${esc(l.chave)}" title="Clique para copiar">${esc(l.chave)}</span><br><small>criada ${data(l.criado_em)}</small></td>
+      <td>${l.plano === 'mensal' ? 'Mensal' : 'Vitalícia'}<br><small>${l.plano === 'mensal' ? 'vence ' + data(l.vence_em) : 'não vence'}</small></td>
+      <td><span class="selo ${s}">${s}</span></td>
+      <td><small>${ativos} de ${l.max_pcs}</small><div class="pcs">${pcs || '<small>nenhum PC ativado ainda</small>'}</div></td>
+      <td><div class="acoes">
+        ${l.plano === 'mensal' ? `<button class="pq" data-a="renovar" data-id="${l.id}">+1 mês</button>` : ''}
+        ${l.status === 'ativa' ? `<button class="pq amarelo" data-a="pausar" data-id="${l.id}">Pausar</button>` : `<button class="pq verde" data-a="reativar" data-id="${l.id}">Reativar</button>`}
+        ${l.status !== 'cancelada' ? `<button class="pq perigo" data-a="cancelar" data-id="${l.id}">Cancelar</button>` : ''}
+        <button class="pq" data-a="pcs" data-id="${l.id}" data-max="${l.max_pcs}">PCs</button>
+        <button class="pq" data-a="plano" data-id="${l.id}" data-plano="${l.plano}">${l.plano === 'mensal' ? 'Virar vitalícia' : 'Virar mensal'}</button>
+      </div></td></tr>`;
+  }).join('') || '<tr><td colspan="6"><small>Nenhuma licença ainda. Crie a primeira acima.</small></td></tr>';
+  $('#reg').innerHTML = (dados.registros || []).map(r => {
+    const l = ls.find(x => x.id === r.licenca_id);
+    return `<div>${quando(r.em)} · <b>${esc(l ? (l.cliente || l.chave) : '—')}</b> · ${esc(r.texto)}</div>`;
+  }).join('') || '<small>Sem registros.</small>';
+  $('#versoes').innerHTML = (dados.versoes || []).map(v => `<div><b>ASSISTENTE ${esc(v.versao)}</b> · publicada ${quando(v.publicado_em)} · <span title="${esc(v.sha256)}">SHA-256 ${esc(v.sha256.slice(0, 12))}…</span>${v.notas ? ' · ' + esc(v.notas) : ''}<br><small>${esc(v.url)}</small></div>`).join('') || '<small>Nenhuma versão publicada: o ASSISTENTE não avisa atualização.</small>';
+  $('#t-min').textContent = dados.teste_minutos || 15;
+  $('#testes').innerHTML = (dados.testes || []).map(t => {
+    const fim = new Date(new Date(t.comecou_em).getTime() + (dados.teste_minutos || 15) * 60000);
+    const lic = (dados.licencas || []).some(l => (l.pcs || []).some(p => p.pc_id === t.pc_id && !p.liberada));
+    return `<div><b>${esc(t.pc_nome || t.pc_id.slice(0, 12))}</b> · começou ${quando(t.comecou_em)} · ${fim > new Date() ? 'testando agora' : 'acabou'}${lic ? ' · <span style="color:#2ecc71">comprou</span>' : ''} · versão ${esc(t.versao)} <button class="pq" data-a="liberar_teste" data-teste="${t.id}">Liberar de novo</button></div>`;
+  }).join('') || '<small>Nenhum PC testou ainda.</small>';
+}
+async function carrega() { try { dados = await admin('listar'); pinta(); } catch (e) { toast(e.message); } }
+async function entrar() {
+  senha = $('#senha').value;
+  try { dados = await admin('listar'); sessionStorage.setItem('lic.senha', senha); $('#entrar').hidden = true; $('#app').hidden = false; pinta(); }
+  catch (e) { $('#entrar-erro').textContent = e.message; }
+}
+function sair() { senha = ''; sessionStorage.removeItem('lic.senha'); $('#app').hidden = true; $('#entrar').hidden = false; }
+$('#b-entrar').onclick = entrar; $('#senha').onkeydown = e => { if (e.key === 'Enter') entrar(); };
+$('#b-sair').onclick = sair; $('#b-atualizar').onclick = carrega; $('#busca').oninput = pinta;
+$('#c-plano').onchange = () => $('#c-meses-l').hidden = $('#c-plano').value !== 'mensal';
+$('#b-criar').onclick = async () => {
+  try {
+    const r = await admin('criar', {cliente: $('#c-cliente').value, contato: $('#c-contato').value, plano: $('#c-plano').value,
+      meses: +$('#c-meses').value, max_pcs: +$('#c-pcs').value, obs: $('#c-obs').value});
+    try { await navigator.clipboard.writeText(r.licenca.chave); } catch {}
+    toast('Licença criada: ' + r.licenca.chave + ' (copiada)');
+    for (const id of ['#c-cliente', '#c-contato', '#c-obs']) $(id).value = '';
+    carrega();
+  } catch (e) { toast(e.message); }
+};
+$('#b-versao').onclick = async () => {
+  const versao = $('#v-versao').value.trim();
+  if (!confirm(`Publicar a versão ${versao} do ASSISTENTE? Todos os instalados passam a avisar a atualização.`)) return;
+  try {
+    await admin('publicar_versao', {versao, url: $('#v-url').value.trim(), sha256: $('#v-sha').value.trim(), notas: $('#v-notas').value});
+    toast('Versão publicada'); for (const id of ['#v-versao', '#v-url', '#v-sha', '#v-notas']) $(id).value = ''; carrega();
+  } catch (e) { toast(e.message); }
+};
+document.addEventListener('click', async e => {
+  const c = e.target.closest('[data-copiar]');
+  if (c) { try { await navigator.clipboard.writeText(c.dataset.copiar); toast('Chave copiada'); } catch {} return; }
+  const b = e.target.closest('[data-a]'); if (!b) return;
+  const id = +b.dataset.id, a = b.dataset.a;
+  try {
+    if (a === 'cancelar' && !confirm('Cancelar esta licença? O programa do cliente para na próxima conferência (em até 4 horas).')) return;
+    if (a === 'pausar' && !confirm('Pausar esta licença? O programa do cliente para na próxima conferência (em até 4 horas).')) return;
+    if (a === 'liberar_pc' && !confirm('Liberar este PC? Ele para na próxima conferência e a vaga fica livre para outro PC.')) return;
+    if (a === 'pcs') { const n = prompt('Quantos PCs esta licença pode ativar?', b.dataset.max); if (!n) return; await admin('editar', {id, max_pcs: +n}); }
+    else if (a === 'plano') { const novo = b.dataset.plano === 'mensal' ? 'vitalicia' : 'mensal'; if (!confirm(`Mudar o plano para ${novo === 'mensal' ? 'mensal (vence em 30 dias)' : 'vitalícia (não vence)'}?`)) return; await admin('editar', {id, plano: novo}); }
+    else if (a === 'renovar') { const n = prompt('Renovar por quantos meses?', '1'); if (!n) return; await admin('renovar', {id, meses: +n}); }
+    else if (a === 'liberar_pc') await admin('liberar_pc', {id, ativacao_id: +b.dataset.pc});
+    else if (a === 'liberar_teste') { if (!confirm('Dar outro teste de 15 minutos a este PC?')) return; await admin('liberar_teste', {teste_id: +b.dataset.teste}); }
+    else await admin(a, {id});
+    toast('Feito'); carrega();
+  } catch (err) { toast(err.message); }
+});
+if (senha) { $('#senha').value = senha; entrar(); }
+setInterval(() => { if (senha && !document.hidden) carrega(); }, 60000);
+</script>
+</body>
+</html>
